@@ -1,9 +1,25 @@
 /**
  * Gemini Outline - 极简嵌入式侧轨与提问跳转样式表 (Section Rail & Prompt Navigator)
- * 纯粹嵌入、零沉重边框、博客级极简排版
+ * 采用严格的样式重置与 Shadow DOM 隔离保护
  */
 
-:root {
+:host {
+  all: initial;
+  position: fixed;
+  top: 80px;
+  bottom: 80px;
+  width: 210px;
+  max-width: 240px;
+  z-index: 2147483640;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* 穿透外层，仅内部交互元素捕获事件 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 1.4;
+
+  /* 核心色彩变量 */
   --go-text-primary: #1f1f1f;
   --go-text-secondary: #5f6368;
   --go-text-muted: #80868b;
@@ -12,71 +28,50 @@
   --go-track: rgba(0, 0, 0, 0.12);
   --go-track-hover: rgba(0, 0, 0, 0.3);
   --go-divider: rgba(0, 0, 0, 0.08);
-  --go-tooltip-bg: rgba(32, 33, 36, 0.94);
+  --go-tooltip-bg: rgba(32, 33, 36, 0.95);
   --go-tooltip-text: #ffffff;
-  --go-tooltip-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   --go-pulse-bg: rgba(26, 115, 232, 0.15);
 }
 
-/* 深色主题适配 (Gemini 原生深色模式或系统深色模式) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --go-text-primary: #e8eaed;
-    --go-text-secondary: #9aa0a6;
-    --go-text-muted: #5f6368;
-    --go-accent: #8ab4f8;
-    --go-accent-light: rgba(138, 180, 248, 0.15);
-    --go-track: rgba(255, 255, 255, 0.16);
-    --go-track-hover: rgba(255, 255, 255, 0.35);
-    --go-divider: rgba(255, 255, 255, 0.1);
-    --go-tooltip-bg: rgba(48, 49, 52, 0.96);
-    --go-tooltip-text: #e8eaed;
-    --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --go-pulse-bg: rgba(138, 180, 248, 0.22);
-  }
-}
-
-/* 显式 dark 类名检测 */
-html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
+/* 深色主题配色变量 */
+:host(.dark-theme) {
   --go-text-primary: #e8eaed;
   --go-text-secondary: #9aa0a6;
   --go-text-muted: #5f6368;
   --go-accent: #8ab4f8;
   --go-accent-light: rgba(138, 180, 248, 0.15);
-  --go-track: rgba(255, 255, 255, 0.16);
+  --go-track: rgba(255, 255, 255, 0.18);
   --go-track-hover: rgba(255, 255, 255, 0.35);
   --go-divider: rgba(255, 255, 255, 0.1);
   --go-tooltip-bg: rgba(48, 49, 52, 0.96);
   --go-tooltip-text: #e8eaed;
-  --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --go-tooltip-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
   --go-pulse-bg: rgba(138, 180, 248, 0.22);
 }
 
-/* 侧轨宿主容器 - 纯粹嵌入，无卡片框 */
-.gemini-outline-rail {
-  position: fixed;
-  top: 82px;
-  bottom: 80px;
-  width: 190px;
-  max-width: 220px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  pointer-events: none; /* 整体容器穿透，仅内部按钮捕获点击 */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  user-select: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* 全局重置与防穿透：杜绝删除线与杂项干扰 */
+*, *::before, *::after {
+  box-sizing: border-box;
+  text-decoration: none !important; /* 强制消除任何删除线/下划线 */
 }
 
-/* 屏幕过窄时的自适应紧凑形态 */
-.gemini-outline-rail.go-narrow-mode {
-  width: 38px;
-  max-width: 38px;
+.gemini-outline-rail {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
 }
-.gemini-outline-rail.go-narrow-mode .go-section-rail,
-.gemini-outline-rail.go-narrow-mode .go-stack-label,
-.gemini-outline-rail.go-narrow-mode .go-pill-tag,
-.gemini-outline-rail.go-narrow-mode .go-rail-divider {
+
+/* 紧凑响应式收缩 */
+:host(.go-narrow-mode) {
+  width: 44px;
+}
+:host(.go-narrow-mode) .go-prompt-preview,
+:host(.go-narrow-mode) .go-section-rail,
+:host(.go-narrow-mode) .go-stack-label,
+:host(.go-narrow-mode) .go-rail-divider {
   display: none !important;
 }
 
@@ -89,25 +84,26 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+  max-height: 220px;
 }
 
 .go-stack-label {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--go-text-muted);
   margin-bottom: 4px;
   padding-left: 2px;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .go-stack-items {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   max-height: 180px;
   overflow-y: auto;
-  scrollbar-width: none; /* 隐藏原生滚动条 */
+  scrollbar-width: none;
 }
 .go-stack-items::-webkit-scrollbar {
   display: none;
@@ -117,6 +113,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .go-prompt-pill {
@@ -129,49 +126,75 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   gap: 6px;
   cursor: pointer;
   border-radius: 4px;
+  width: 100%;
+  text-align: left;
   transition: all 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* 水平小横条 (ChatGPT 经典小横棒) */
 .go-pill-bar {
   display: inline-block;
-  width: 14px;
+  width: 12px;
   height: 3px;
   border-radius: 2px;
   background-color: var(--go-track);
+  flex-shrink: 0;
   transition: width 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease;
 }
 
 .go-pill-tag {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--go-text-secondary);
-  opacity: 0.75;
+  opacity: 0.8;
+  flex-shrink: 0;
   transition: color 0.15s ease, opacity 0.15s ease;
 }
 
-/* 悬停提问横条 */
+/* 提问内容实时概览文本 */
+.go-prompt-preview {
+  font-size: 11.5px;
+  color: var(--go-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+  flex: 1;
+  min-width: 0;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* 悬停提问项 */
+.go-prompt-pill:hover {
+  background-color: var(--go-accent-light);
+}
 .go-prompt-pill:hover .go-pill-bar {
-  width: 22px;
+  width: 18px;
   background-color: var(--go-text-primary);
 }
-.go-prompt-pill:hover .go-pill-tag {
+.go-prompt-pill:hover .go-pill-tag,
+.go-prompt-pill:hover .go-prompt-preview {
   color: var(--go-text-primary);
   opacity: 1;
 }
 
-/* 激活的当前提问横条 */
+/* 激活的当前提问项 */
 .go-prompt-pill.is-active .go-pill-bar {
-  width: 26px;
+  width: 22px;
   background-color: var(--go-accent);
 }
 .go-prompt-pill.is-active .go-pill-tag {
+  color: var(--go-accent);
+  font-weight: 700;
+  opacity: 1;
+}
+.go-prompt-pill.is-active .go-prompt-preview {
   color: var(--go-accent);
   font-weight: 600;
   opacity: 1;
 }
 
-/* 悬浮预览 Tooltip (极简毛玻璃卡片气泡) */
+/* 悬浮完整提示 Tooltip */
 .go-prompt-tooltip {
   position: absolute;
   right: 100%;
@@ -179,13 +202,13 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   transform: translateY(-50%) translateX(-8px);
   background: var(--go-tooltip-bg);
   color: var(--go-tooltip-text);
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 6px;
-  font-size: 11.5px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.45;
   white-space: normal;
   width: max-content;
-  max-width: 240px;
+  max-width: 280px;
   box-shadow: var(--go-tooltip-shadow);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -202,15 +225,15 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   left: 100%;
   top: 50%;
   transform: translateY(-50%);
-  border-width: 4px;
+  border-width: 5px;
   border-style: solid;
   border-color: transparent transparent transparent var(--go-tooltip-bg);
 }
 
 .go-tooltip-num {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--go-accent);
-  margin-right: 2px;
+  margin-right: 4px;
 }
 
 .go-prompt-pill-wrapper:hover .go-prompt-tooltip {
@@ -223,7 +246,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
    2. 轻柔分割线
    ========================================================= */
 .go-rail-divider {
-  width: 120px;
+  width: 140px;
   height: 1px;
   background: var(--go-divider);
   margin: 10px 0 10px 2px;
@@ -239,7 +262,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 0; /* 允许内部滚动 */
+  min-height: 0;
 }
 
 .go-section-track {
@@ -308,6 +331,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color 0.12s ease;
+  text-decoration: none !important;
 }
 
 /* 悬停标题 */
@@ -324,7 +348,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   font-weight: 600;
 }
 
-/* 在左侧导轨线上的激活指示滑块 */
+/* 左侧导轨线上的激活指示条 */
 .go-section-item.is-active::before {
   content: '';
   position: absolute;
@@ -339,7 +363,7 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* 层级微距缩进 (仿 Typora / 博客层级) */
+/* 层级微距缩进 */
 .go-depth-0 .go-section-link {
   padding-left: 14px;
 }
@@ -377,31 +401,5 @@ html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
   font-size: 11px;
   color: var(--go-text-muted);
   font-style: italic;
-  opacity: 0.7;
-}
-
-/* =========================================================
-   4. 点击跳转后的目标元素引导闪烁动效 (Pulse)
-   ========================================================= */
-@keyframes goTargetFlash {
-  0% {
-    background-color: var(--go-pulse-bg);
-    outline: 2px solid var(--go-accent);
-    outline-offset: 4px;
-  }
-  70% {
-    background-color: var(--go-pulse-bg);
-    outline: 2px solid var(--go-accent);
-    outline-offset: 4px;
-  }
-  100% {
-    background-color: transparent;
-    outline: 2px solid transparent;
-    outline-offset: 4px;
-  }
-}
-
-.go-target-pulse {
-  animation: goTargetFlash 1.2s cubic-bezier(0.2, 0, 0, 1) forwards;
-  border-radius: 4px;
+  opacity: 0.75;
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gemini Outline",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Gemini 网页端极简嵌入式大纲侧轨与提问导航助手 (Section Rail & Prompt Navigator)",
   "icons": {
     "16": "icons/icon16.png",
@@ -35,6 +35,16 @@
         "styles.css"
       ],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "styles.css"
+      ],
+      "matches": [
+        "https://gemini.google.com/*"
+      ]
     }
   ]
 }
