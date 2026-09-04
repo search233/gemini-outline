@@ -1,6 +1,6 @@
 /**
- * Gemini Outline - 极简嵌入式侧轨与提问导航 (Section Rail & Prompt Navigator)
- * 采用 Shadow DOM 隔离、原生滚动定位与提问概览展示
+ * Gemini Outline - 极简嵌入式侧轨与提问跳转 (Section Rail & Prompt Navigator)
+ * 采用 Shadow DOM 隔离、纯短横线提问栈与悬浮信息卡片
  */
 
 (function () {
@@ -8,7 +8,7 @@
 
   // 状态管理
   const state = {
-    turns: [],               // 所有问答轮次 { index, userEl, userText, userSnippet, modelEl, headings: [] }
+    turns: [],               // 所有问答轮次 { index, userEl, userFullText, modelEl, headings: [] }
     activeTurnIndex: 0,      // 当前处于视口或激活的问答轮次
     activeHeadingId: null,   // 当前正在阅读的高亮标题 ID
     isStreaming: false,      // 是否正在流式生成新回答
@@ -39,21 +39,21 @@
     };
   }
 
-  // 稳健的目标元素滚动直达机制 (双保险：原生 scrollIntoView + 滚动祖先兜底)
+  // 稳健的目标元素滚动直达机制 (原生 scrollIntoView + 滚动祖先兜底)
   function scrollToTarget(element) {
     if (!element) return;
 
-    // 1. 设置 80px 的顶部预留间距，避开 Gemini 顶部导航条
+    // 1. 设置 84px 的顶部预留间距，避开 Gemini 顶部导航条
     element.style.scrollMarginTop = '84px';
 
-    // 2. 原生 scrollIntoView：由浏览器引擎自行找到所有溢出滚动祖先进行平滑对齐
+    // 2. 原生 scrollIntoView：由浏览器引擎自行寻找各层级滚动容器对齐
     try {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       element.scrollIntoView(true);
     }
 
-    // 3. 递归向上寻找最邻近的可滚动容器并进行偏移兜底
+    // 3. 向上寻找并兜底最邻近的具有 overflow-y 滚动特性的祖先容器
     let parent = element.parentElement;
     while (parent && parent !== document.documentElement && parent !== document.body) {
       const style = getComputedStyle(parent);
@@ -61,7 +61,6 @@
       if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
         const parentRect = parent.getBoundingClientRect();
         const elRect = element.getBoundingClientRect();
-        // 计算目标距离父容器顶部的真实相对距离
         const targetScroll = parent.scrollTop + (elRect.top - parentRect.top) - 84;
         parent.scrollTo({
           top: Math.max(0, targetScroll),
@@ -72,14 +71,14 @@
       parent = parent.parentElement;
     }
 
-    // 4. 目标元素高亮闪烁动效引导
+    // 4. 目标元素高亮微闪烁引导视觉
     element.classList.add('go-target-pulse');
     setTimeout(() => {
       element.classList.remove('go-target-pulse');
     }, 1200);
   }
 
-  // 过滤系统/角色标签，排除如 "Gemini 说" 等非正文标题
+  // 过滤系统/角色标签，排除如 "Gemini 说" 等非正文小标题
   const SYSTEM_TITLE_PATTERNS = [
     /^(gemini(\s*说|\s*said)?)$/i,
     /^(google\s*gemini)$/i,
@@ -93,14 +92,11 @@
     const clean = text.trim();
     if (clean.length < 1) return false;
 
-    // 排除特定系统角色字样
     for (const pattern of SYSTEM_TITLE_PATTERNS) {
       if (pattern.test(clean)) return false;
     }
 
-    // 排除标有 aria-hidden 且不是正文的节点
     if (hEl.getAttribute('aria-hidden') === 'true' && !hEl.innerText) return false;
-    // 排除处于头部角色栏内的标题
     if (hEl.closest('.header, .message-header, .response-header, .avatar-header')) return false;
 
     return true;
@@ -108,7 +104,7 @@
 
   // 扫描并结构化页面所有问答轮次
   function scanTurns() {
-    // 1. 查找用户提问节点 (多级兼容选择器)
+    // 1. 查找用户提问节点
     const userQuerySelectors = [
       'user-query',
       '[data-test-id*="user-query"]',
@@ -123,13 +119,12 @@
     for (const sel of userQuerySelectors) {
       const els = Array.from(document.querySelectorAll(sel));
       if (els.length > 0) {
-        // 过滤内部嵌套子元素，仅保留最顶层容器
         userQueryElements = els.filter(el => !el.parentElement || !el.parentElement.closest(sel));
         break;
       }
     }
 
-    // 2. 查找模型回答节点 (多级兼容选择器)
+    // 2. 查找模型回答节点
     const modelResponseSelectors = [
       'model-response',
       '[data-test-id*="model-response"]',
@@ -155,10 +150,9 @@
       const userEl = userQueryElements[i] || null;
       const modelEl = modelResponseElements[i] || null;
 
-      // 提取提问真实纯文本
+      // 提取提问纯文本
       let userFullText = '';
       if (userEl) {
-        // 优先提取 query-text 内容，防止混入头像等杂质文本
         const textNode = userEl.querySelector('.query-text, .user-query-text, p') || userEl;
         userFullText = textNode.innerText ? textNode.innerText.trim() : textNode.textContent.trim();
         userFullText = userFullText.replace(/\s+/g, ' ');
@@ -167,9 +161,6 @@
       if (!userFullText) {
         userFullText = `提问 #${i + 1}`;
       }
-
-      // 生成紧凑的前缀概览文本 (约 16 个字符，超出省略)
-      const userSnippet = userFullText.length > 18 ? userFullText.substring(0, 16) + '...' : userFullText;
 
       // 提取当前回答内部的真实 Markdown 标题
       const headings = [];
@@ -205,7 +196,6 @@
         index: i,
         userEl,
         userFullText,
-        userSnippet,
         modelEl,
         headings
       });
@@ -213,7 +203,7 @@
 
     state.turns = turns;
 
-    // 检查 Gemini 是否处于流式打字输出状态
+    // 检查是否处于打字流式吐字状态
     const streamingIndicator = document.querySelector('.typing-indicator, [class*="streaming"], [class*="typing"]');
     state.isStreaming = Boolean(streamingIndicator);
 
@@ -293,7 +283,7 @@
     }
   }
 
-  // 初始化 Shadow DOM 宿主并注入独立隔离样式
+  // 初始化 Shadow DOM 宿主并注入隔离保护
   function ensureShadowHost() {
     if (!state.hostEl) {
       let existing = document.getElementById('gemini-outline-rail-host');
@@ -303,16 +293,26 @@
       host.id = 'gemini-outline-rail-host';
       document.body.appendChild(host);
 
-      // 创建开放模式的 Shadow DOM，彻底隔绝外部全局样式与删除线干扰
+      // 创建开放模式的 Shadow DOM，彻底隔离任何外部删除线与样式干扰
       const shadow = host.attachShadow({ mode: 'open' });
 
-      // 动态载入扩展样式
+      // 注入 CSS 链接
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = chrome.runtime.getURL('styles.css');
       shadow.appendChild(link);
 
-      // 内部侧轨容器
+      // 极速硬重置 style，杜绝任何一毫秒的删除线
+      const resetStyle = document.createElement('style');
+      resetStyle.textContent = `
+        *, *::before, *::after {
+          box-sizing: border-box;
+          text-decoration: none !important;
+        }
+      `;
+      shadow.appendChild(resetStyle);
+
+      // 内部侧轨主容器
       const container = document.createElement('div');
       container.className = 'gemini-outline-rail';
       shadow.appendChild(container);
@@ -339,7 +339,7 @@
       host.classList.remove('dark-theme');
     }
 
-    // 寻找居中对话容器
+    // 寻找居中正文容器
     const contentContainers = [
       'chat-window',
       '.chat-history',
@@ -373,7 +373,7 @@
     // 靠在正文右侧 20px
     if (contentRect && contentRect.right > 0) {
       const idealLeft = contentRect.right + 20;
-      const maxLeft = windowWidth - 240;
+      const maxLeft = windowWidth - 230;
 
       if (idealLeft <= maxLeft) {
         host.style.left = `${Math.round(idealLeft)}px`;
@@ -388,7 +388,7 @@
     }
   }
 
-  // 渲染完整的嵌入式侧轨 (包含带概览的提问栈与章节大纲)
+  // 渲染完整的嵌入式侧轨 (纯段横线提问栈 + 悬浮信息框 + 章节大纲)
   function renderRail() {
     const container = ensureShadowHost();
     if (state.turns.length === 0) {
@@ -397,7 +397,7 @@
     }
     state.hostEl.style.display = 'flex';
 
-    // 1. ChatGPT 风格提问导航栈 (带提问文本概览)
+    // 1. ChatGPT 风格纯段横线提问导航栈 (无 Q1/Q2 冗余文字，间距紧凑，悬停冒出信息框)
     let promptHtml = `
       <div class="go-prompt-stack" aria-label="提问导航">
         <div class="go-stack-label">PROMPTS</div>
@@ -407,19 +407,17 @@
     state.turns.forEach((turn) => {
       const isActive = turn.index === state.activeTurnIndex;
       const safeFull = turn.userFullText.replace(/"/g, '&quot;');
-      const safeSnippet = turn.userSnippet.replace(/"/g, '&quot;');
 
       promptHtml += `
         <div class="go-prompt-pill-wrapper" data-turn="${turn.index}">
           <button class="go-prompt-pill ${isActive ? 'is-active' : ''}" 
                   data-turn="${turn.index}"
-                  aria-label="跳转至提问 ${turn.index + 1}">
+                  aria-label="跳转至第 ${turn.index + 1} 轮提问">
             <span class="go-pill-bar"></span>
-            <span class="go-pill-tag">Q${turn.index + 1}</span>
-            <span class="go-prompt-preview" title="${safeFull}">${safeSnippet}</span>
           </button>
           <div class="go-prompt-tooltip">
-            <span class="go-tooltip-num">Q${turn.index + 1}:</span> ${safeFull}
+            <div class="go-tooltip-header">第 ${turn.index + 1} 轮提问</div>
+            <div class="go-tooltip-body">${safeFull}</div>
           </div>
         </div>
       `;
@@ -471,7 +469,7 @@
 
     container.innerHTML = promptHtml + sectionHtml;
 
-    // 绑定提问条点击跳转
+    // 绑定段横线点击跳转
     const pillBtns = container.querySelectorAll('.go-prompt-pill');
     pillBtns.forEach((btn) => {
       btn.addEventListener('click', (e) => {
@@ -481,7 +479,6 @@
         if (targetTurn) {
           state.activeTurnIndex = turnIdx;
           renderRail();
-          // 如果有用户提问节点则跳向提问，否则跳向回答
           const targetEl = targetTurn.userEl || targetTurn.modelEl;
           if (targetEl) {
             scrollToTarget(targetEl);
@@ -517,7 +514,7 @@
     const container = state.containerEl;
     if (!container) return;
 
-    // 更新提问条高亮
+    // 更新段横线激活状态
     const pillWrappers = container.querySelectorAll('.go-prompt-pill-wrapper');
     pillWrappers.forEach((wrap) => {
       const turnIdx = parseInt(wrap.dataset.turn, 10);
@@ -531,7 +528,7 @@
       }
     });
 
-    // 更新大纲小节高亮
+    // 更新大纲小节激活状态
     const items = container.querySelectorAll('.go-section-item');
     items.forEach((item) => {
       const hId = item.dataset.headingId;
@@ -558,13 +555,12 @@
     updateScrollSpy();
   }, 100);
 
-  // 绑定滚动监听 (支持全局与内部滚动容器)
+  // 绑定滚动监听
   function attachScrollListeners() {
     window.addEventListener('scroll', throttledScroll, { passive: true });
     window.addEventListener('resize', debouncedResize, { passive: true });
 
-    // 捕获阶段监听任何可能滚动的内部元素
-    document.addEventListener('scroll', (e) => {
+    document.addEventListener('scroll', () => {
       throttledScroll();
     }, { capture: true, passive: true });
   }
@@ -573,7 +569,7 @@
   function init() {
     attachScrollListeners();
 
-    // 观察 DOM 变动 (处理流式打字输出与 SPA 会话切换)
+    // 观察 DOM 变动 (处理流式打字与 SPA 对话切换)
     const observer = new MutationObserver((mutations) => {
       let shouldSync = false;
       for (const m of mutations) {
@@ -594,14 +590,14 @@
       characterData: true
     });
 
-    // 注入脉冲闪烁样式规则至主文档 (用于正文高亮引导)
+    // 注入全局目标高亮脉冲动画规则
     if (!document.getElementById('go-global-pulse-style')) {
       const pulseStyle = document.createElement('style');
       pulseStyle.id = 'go-global-pulse-style';
       pulseStyle.textContent = `
         @keyframes goTargetFlash {
-          0% { background-color: rgba(26, 115, 232, 0.22); outline: 2px solid #1a73e8; outline-offset: 4px; }
-          70% { background-color: rgba(26, 115, 232, 0.15); outline: 2px solid #1a73e8; outline-offset: 4px; }
+          0% { background-color: rgba(26, 115, 232, 0.25); outline: 2px solid #1a73e8; outline-offset: 4px; }
+          70% { background-color: rgba(26, 115, 232, 0.16); outline: 2px solid #1a73e8; outline-offset: 4px; }
           100% { background-color: transparent; outline: 2px solid transparent; outline-offset: 4px; }
         }
         .go-target-pulse {
@@ -612,7 +608,6 @@
       document.head.appendChild(pulseStyle);
     }
 
-    // 多次延迟检查，确保 SPA 初始化挂载
     setTimeout(syncAll, 400);
     setTimeout(syncAll, 1200);
     setTimeout(syncAll, 2500);

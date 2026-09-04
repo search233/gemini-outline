@@ -25,12 +25,12 @@
   --go-text-muted: #80868b;
   --go-accent: #1a73e8;
   --go-accent-light: rgba(26, 115, 232, 0.1);
-  --go-track: rgba(0, 0, 0, 0.12);
-  --go-track-hover: rgba(0, 0, 0, 0.3);
+  --go-track: rgba(0, 0, 0, 0.14);
+  --go-track-hover: rgba(0, 0, 0, 0.35);
   --go-divider: rgba(0, 0, 0, 0.08);
-  --go-tooltip-bg: rgba(32, 33, 36, 0.95);
-  --go-tooltip-text: #ffffff;
-  --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  --go-tooltip-bg: rgba(32, 33, 36, 0.96);
+  --go-tooltip-text: #f1f3f4;
+  --go-tooltip-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   --go-pulse-bg: rgba(26, 115, 232, 0.15);
 }
 
@@ -41,19 +41,19 @@
   --go-text-muted: #5f6368;
   --go-accent: #8ab4f8;
   --go-accent-light: rgba(138, 180, 248, 0.15);
-  --go-track: rgba(255, 255, 255, 0.18);
-  --go-track-hover: rgba(255, 255, 255, 0.35);
+  --go-track: rgba(255, 255, 255, 0.2);
+  --go-track-hover: rgba(255, 255, 255, 0.45);
   --go-divider: rgba(255, 255, 255, 0.1);
   --go-tooltip-bg: rgba(48, 49, 52, 0.96);
   --go-tooltip-text: #e8eaed;
-  --go-tooltip-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  --go-tooltip-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
   --go-pulse-bg: rgba(138, 180, 248, 0.22);
 }
 
 /* 全局重置与防穿透：杜绝删除线与杂项干扰 */
 *, *::before, *::after {
   box-sizing: border-box;
-  text-decoration: none !important; /* 强制消除任何删除线/下划线 */
+  text-decoration: none !important;
 }
 
 .gemini-outline-rail {
@@ -68,7 +68,6 @@
 :host(.go-narrow-mode) {
   width: 44px;
 }
-:host(.go-narrow-mode) .go-prompt-preview,
 :host(.go-narrow-mode) .go-section-rail,
 :host(.go-narrow-mode) .go-stack-label,
 :host(.go-narrow-mode) .go-rail-divider {
@@ -76,13 +75,13 @@
 }
 
 /* =========================================================
-   1. ChatGPT 风格提问导航栈 (Prompt Navigator)
+   1. ChatGPT 风格纯段横线提问导航栈 (Prompt Navigator)
    ========================================================= */
 .go-prompt-stack {
   pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
   max-height: 220px;
 }
@@ -92,15 +91,15 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--go-text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   padding-left: 2px;
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
 .go-stack-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px; /* 缩短段横线之间的间距 */
   max-height: 180px;
   overflow-y: auto;
   scrollbar-width: none;
@@ -113,88 +112,46 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
+  width: max-content;
 }
 
 .go-prompt-pill {
   border: none;
   background: transparent;
-  padding: 3px 4px;
+  padding: 3px 2px; /* 极简紧凑内边距 */
   margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   cursor: pointer;
-  border-radius: 4px;
-  width: 100%;
-  text-align: left;
+  border-radius: 3px;
   transition: all 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* 水平小横条 (ChatGPT 经典小横棒) */
+/* 水平小段横线 (ChatGPT 极简小横杠) */
 .go-pill-bar {
   display: inline-block;
-  width: 12px;
+  width: 14px;
   height: 3px;
   border-radius: 2px;
   background-color: var(--go-track);
   flex-shrink: 0;
-  transition: width 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease;
+  transition: width 0.18s cubic-bezier(0.2, 0, 0, 1), background-color 0.18s ease;
 }
 
-.go-pill-tag {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--go-text-secondary);
-  opacity: 0.8;
-  flex-shrink: 0;
-  transition: color 0.15s ease, opacity 0.15s ease;
-}
-
-/* 提问内容实时概览文本 */
-.go-prompt-preview {
-  font-size: 11.5px;
-  color: var(--go-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0.85;
-  flex: 1;
-  min-width: 0;
-  transition: color 0.15s ease, opacity 0.15s ease;
-}
-
-/* 悬停提问项 */
-.go-prompt-pill:hover {
-  background-color: var(--go-accent-light);
-}
+/* 悬停段横线：微幅拉长并提亮 */
 .go-prompt-pill:hover .go-pill-bar {
-  width: 18px;
+  width: 22px;
   background-color: var(--go-text-primary);
 }
-.go-prompt-pill:hover .go-pill-tag,
-.go-prompt-pill:hover .go-prompt-preview {
-  color: var(--go-text-primary);
-  opacity: 1;
-}
 
-/* 激活的当前提问项 */
+/* 当前阅读所在的活跃段横线：品牌主色并加长 */
 .go-prompt-pill.is-active .go-pill-bar {
-  width: 22px;
+  width: 26px;
   background-color: var(--go-accent);
-}
-.go-prompt-pill.is-active .go-pill-tag {
-  color: var(--go-accent);
-  font-weight: 700;
-  opacity: 1;
-}
-.go-prompt-pill.is-active .go-prompt-preview {
-  color: var(--go-accent);
-  font-weight: 600;
-  opacity: 1;
+  box-shadow: 0 0 6px var(--go-accent-light);
 }
 
-/* 悬浮完整提示 Tooltip */
+/* 悬浮冒出风格一致的信息框 (Tooltip Card) */
 .go-prompt-tooltip {
   position: absolute;
   right: 100%;
@@ -203,20 +160,18 @@
   background: var(--go-tooltip-bg);
   color: var(--go-tooltip-text);
   padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.45;
-  white-space: normal;
-  width: max-content;
-  max-width: 280px;
+  border-radius: 8px;
+  border: 1px solid var(--go-divider);
   box-shadow: var(--go-tooltip-shadow);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0, 0, 1);
   z-index: 10001;
+  width: max-content;
+  max-width: 280px;
 }
 
 .go-prompt-tooltip::after {
@@ -230,10 +185,20 @@
   border-color: transparent transparent transparent var(--go-tooltip-bg);
 }
 
-.go-tooltip-num {
+.go-tooltip-header {
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--go-accent);
-  margin-right: 4px;
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+}
+
+.go-tooltip-body {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--go-tooltip-text);
+  word-break: break-word;
+  white-space: normal;
 }
 
 .go-prompt-pill-wrapper:hover .go-prompt-tooltip {
