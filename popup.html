@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Outline</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="Logo" class="logo">
+        <div class="title-group">
+          <span class="title">Gemini Outline</span>
+          <span class="badge">v1.0.0</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="feature-status">
+        <span class="status-dot"></span>
+        <span class="status-text">已为 Gemini 网页端激活</span>
+      </div>
+
+      <div class="info-card">
+        <div class="info-item">
+          <span class="info-icon">📑</span>
+          <div class="info-text">
+            <strong>提问跳转栈</strong>
+            <p>点击 Q1/Q2/Q3 快速定位各轮提问，鼠标悬停预览提问内容。</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">🧭</span>
+          <div class="info-text">
+            <strong>当前回答大纲</strong>
+            <p>纯文档标题树，随滚动自动跟随当前回答，点击直达段落。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-box">
+        💡 提示：侧轨已自然嵌入在网页右侧留白槽位，无需额外呼出，随着页面滚动自动切换。
+      </div>
+    </div>
+
+    <footer class="popup-footer">
+      <a href="https://gemini.google.com" target="_blank" class="gemini-link">进入 Google Gemini ↗</a>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,407 @@
+/**
+ * Gemini Outline - 极简嵌入式侧轨与提问跳转样式表 (Section Rail & Prompt Navigator)
+ * 纯粹嵌入、零沉重边框、博客级极简排版
+ */
+
+:root {
+  --go-text-primary: #1f1f1f;
+  --go-text-secondary: #5f6368;
+  --go-text-muted: #80868b;
+  --go-accent: #1a73e8;
+  --go-accent-light: rgba(26, 115, 232, 0.1);
+  --go-track: rgba(0, 0, 0, 0.12);
+  --go-track-hover: rgba(0, 0, 0, 0.3);
+  --go-divider: rgba(0, 0, 0, 0.08);
+  --go-tooltip-bg: rgba(32, 33, 36, 0.94);
+  --go-tooltip-text: #ffffff;
+  --go-tooltip-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  --go-pulse-bg: rgba(26, 115, 232, 0.15);
+}
+
+/* 深色主题适配 (Gemini 原生深色模式或系统深色模式) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --go-text-primary: #e8eaed;
+    --go-text-secondary: #9aa0a6;
+    --go-text-muted: #5f6368;
+    --go-accent: #8ab4f8;
+    --go-accent-light: rgba(138, 180, 248, 0.15);
+    --go-track: rgba(255, 255, 255, 0.16);
+    --go-track-hover: rgba(255, 255, 255, 0.35);
+    --go-divider: rgba(255, 255, 255, 0.1);
+    --go-tooltip-bg: rgba(48, 49, 52, 0.96);
+    --go-tooltip-text: #e8eaed;
+    --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --go-pulse-bg: rgba(138, 180, 248, 0.22);
+  }
+}
+
+/* 显式 dark 类名检测 */
+html.dark-theme, body.dark-theme, [data-theme="dark"], body[class*="dark"] {
+  --go-text-primary: #e8eaed;
+  --go-text-secondary: #9aa0a6;
+  --go-text-muted: #5f6368;
+  --go-accent: #8ab4f8;
+  --go-accent-light: rgba(138, 180, 248, 0.15);
+  --go-track: rgba(255, 255, 255, 0.16);
+  --go-track-hover: rgba(255, 255, 255, 0.35);
+  --go-divider: rgba(255, 255, 255, 0.1);
+  --go-tooltip-bg: rgba(48, 49, 52, 0.96);
+  --go-tooltip-text: #e8eaed;
+  --go-tooltip-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --go-pulse-bg: rgba(138, 180, 248, 0.22);
+}
+
+/* 侧轨宿主容器 - 纯粹嵌入，无卡片框 */
+.gemini-outline-rail {
+  position: fixed;
+  top: 82px;
+  bottom: 80px;
+  width: 190px;
+  max-width: 220px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* 整体容器穿透，仅内部按钮捕获点击 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* 屏幕过窄时的自适应紧凑形态 */
+.gemini-outline-rail.go-narrow-mode {
+  width: 38px;
+  max-width: 38px;
+}
+.gemini-outline-rail.go-narrow-mode .go-section-rail,
+.gemini-outline-rail.go-narrow-mode .go-stack-label,
+.gemini-outline-rail.go-narrow-mode .go-pill-tag,
+.gemini-outline-rail.go-narrow-mode .go-rail-divider {
+  display: none !important;
+}
+
+/* =========================================================
+   1. ChatGPT 风格提问导航栈 (Prompt Navigator)
+   ========================================================= */
+.go-prompt-stack {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.go-stack-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--go-text-muted);
+  margin-bottom: 4px;
+  padding-left: 2px;
+  opacity: 0.8;
+}
+
+.go-stack-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: none; /* 隐藏原生滚动条 */
+}
+.go-stack-items::-webkit-scrollbar {
+  display: none;
+}
+
+.go-prompt-pill-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.go-prompt-pill {
+  border: none;
+  background: transparent;
+  padding: 3px 4px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 水平小横条 (ChatGPT 经典小横棒) */
+.go-pill-bar {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background-color: var(--go-track);
+  transition: width 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease;
+}
+
+.go-pill-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--go-text-secondary);
+  opacity: 0.75;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* 悬停提问横条 */
+.go-prompt-pill:hover .go-pill-bar {
+  width: 22px;
+  background-color: var(--go-text-primary);
+}
+.go-prompt-pill:hover .go-pill-tag {
+  color: var(--go-text-primary);
+  opacity: 1;
+}
+
+/* 激活的当前提问横条 */
+.go-prompt-pill.is-active .go-pill-bar {
+  width: 26px;
+  background-color: var(--go-accent);
+}
+.go-prompt-pill.is-active .go-pill-tag {
+  color: var(--go-accent);
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* 悬浮预览 Tooltip (极简毛玻璃卡片气泡) */
+.go-prompt-tooltip {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+  background: var(--go-tooltip-bg);
+  color: var(--go-tooltip-text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  box-shadow: var(--go-tooltip-shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 10001;
+}
+
+.go-prompt-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: transparent transparent transparent var(--go-tooltip-bg);
+}
+
+.go-tooltip-num {
+  font-weight: 600;
+  color: var(--go-accent);
+  margin-right: 2px;
+}
+
+.go-prompt-pill-wrapper:hover .go-prompt-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(-12px);
+}
+
+/* =========================================================
+   2. 轻柔分割线
+   ========================================================= */
+.go-rail-divider {
+  width: 120px;
+  height: 1px;
+  background: var(--go-divider);
+  margin: 10px 0 10px 2px;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   3. 当前回答章节大纲 (Section Rail)
+   ========================================================= */
+.go-section-rail {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* 允许内部滚动 */
+}
+
+.go-section-track {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  pointer-events: none;
+}
+
+/* 贯穿纵向导轨线 */
+.go-track-line {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 1.5px;
+  background-color: var(--go-track);
+  border-radius: 1px;
+}
+
+.go-section-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--go-track) transparent;
+  flex: 1;
+}
+
+.go-section-list::-webkit-scrollbar {
+  width: 3px;
+}
+.go-section-list::-webkit-scrollbar-thumb {
+  background-color: var(--go-track);
+  border-radius: 2px;
+}
+
+.go-section-item {
+  position: relative;
+  margin: 2px 0;
+}
+
+.go-section-link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 4px 6px 4px 14px;
+  margin: 0;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 1.35;
+  transition: background-color 0.12s ease;
+}
+
+.go-section-title {
+  display: block;
+  font-size: 12px;
+  color: var(--go-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+
+/* 悬停标题 */
+.go-section-link:hover {
+  background-color: var(--go-accent-light);
+}
+.go-section-link:hover .go-section-title {
+  color: var(--go-text-primary);
+}
+
+/* 激活的当前阅读小节 (ScrollSpy) */
+.go-section-item.is-active .go-section-title {
+  color: var(--go-accent);
+  font-weight: 600;
+}
+
+/* 在左侧导轨线上的激活指示滑块 */
+.go-section-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 7px;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background-color: var(--go-accent);
+  z-index: 2;
+  box-shadow: 0 0 6px var(--go-accent);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 层级微距缩进 (仿 Typora / 博客层级) */
+.go-depth-0 .go-section-link {
+  padding-left: 14px;
+}
+.go-depth-0 .go-section-title {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.go-depth-1 .go-section-link {
+  padding-left: 24px;
+}
+.go-depth-1 .go-section-title {
+  font-size: 11.5px;
+}
+
+.go-depth-2 .go-section-link {
+  padding-left: 34px;
+}
+.go-depth-2 .go-section-title {
+  font-size: 11px;
+}
+
+.go-depth-3 .go-section-link {
+  padding-left: 44px;
+}
+.go-depth-3 .go-section-title {
+  font-size: 10.5px;
+}
+
+/* 空状态小提示 */
+.go-section-empty {
+  padding: 6px 0 0 4px;
+}
+.go-empty-hint {
+  font-size: 11px;
+  color: var(--go-text-muted);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* =========================================================
+   4. 点击跳转后的目标元素引导闪烁动效 (Pulse)
+   ========================================================= */
+@keyframes goTargetFlash {
+  0% {
+    background-color: var(--go-pulse-bg);
+    outline: 2px solid var(--go-accent);
+    outline-offset: 4px;
+  }
+  70% {
+    background-color: var(--go-pulse-bg);
+    outline: 2px solid var(--go-accent);
+    outline-offset: 4px;
+  }
+  100% {
+    background-color: transparent;
+    outline: 2px solid transparent;
+    outline-offset: 4px;
+  }
+}
+
+.go-target-pulse {
+  animation: goTargetFlash 1.2s cubic-bezier(0.2, 0, 0, 1) forwards;
+  border-radius: 4px;
+}
