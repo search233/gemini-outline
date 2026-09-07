@@ -161,11 +161,23 @@
       // 提取提问纯文本
       let userFullText = '';
       if (userEl) {
-        const textNode = userEl.querySelector('.query-text, .user-query-text, p') || userEl;
+        // 尝试更精准地定位正文以避开外层无障碍标签
+        const textNode = userEl.querySelector('.query-text, .user-query-text, [data-test-id*="query"], [class*="content"]') || userEl;
         userFullText = textNode.innerText ? textNode.innerText.trim() : textNode.textContent.trim();
         userFullText = userFullText.replace(/\s+/g, ' ');
         // 移除无障碍或辅助文本前缀（如 Gemini 的 "你说" 或 "You said"）
         userFullText = userFullText.replace(/^(你说|You said)[:：\s]*/i, '');
+        
+        // 解决因 Gemini 包含隐藏的无障碍节点，导致 `innerText` 抓取到重复内容的问题
+        // 现象：文本变成完全相同的两半，比如 "提问内容 提问内容"
+        const halfLen = Math.floor(userFullText.length / 2);
+        if (userFullText.length > 5 && userFullText.charAt(halfLen) === ' ') {
+          const firstHalf = userFullText.substring(0, halfLen);
+          const secondHalf = userFullText.substring(halfLen + 1);
+          if (firstHalf === secondHalf) {
+            userFullText = firstHalf; // 去重，只保留一半
+          }
+        }
       }
 
       if (!userFullText) {
