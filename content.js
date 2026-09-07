@@ -14,7 +14,9 @@
     isStreaming: false,      // 是否正在流式生成新回答
     hostEl: null,            // 挂载在页面的宿主元素
     shadowRoot: null,        // 开放的 Shadow DOM
-    containerEl: null        // 侧轨主 DOM 容器
+    containerEl: null,       // 侧轨主 DOM 容器
+    lastRenderedHtml: '',    // 上次渲染的 HTML，用于对比避免冗余重绘
+    tooltipEl: null          // 单例全局悬浮提示框
   };
 
   // 防抖函数
@@ -39,42 +41,26 @@
     };
   }
 
-  // 稳健的目标元素滚动直达机制 (原生 scrollIntoView + 滚动祖先兜底)
+  // 稳健的目标元素滚动直达机制
   function scrollToTarget(element) {
     if (!element) return;
 
-    // 1. 设置 84px 的顶部预留间距，避开 Gemini 顶部导航条
+    const originalMargin = element.style.scrollMarginTop;
     element.style.scrollMarginTop = '84px';
 
-    // 2. 原生 scrollIntoView：由浏览器引擎自行寻找各层级滚动容器对齐
     try {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       element.scrollIntoView(true);
     }
 
-    // 3. 向上寻找并兜底最邻近的具有 overflow-y 滚动特性的祖先容器
-    let parent = element.parentElement;
-    while (parent && parent !== document.documentElement && parent !== document.body) {
-      const style = getComputedStyle(parent);
-      const overflowY = style.overflowY;
-      if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
-        const parentRect = parent.getBoundingClientRect();
-        const elRect = element.getBoundingClientRect();
-        const targetScroll = parent.scrollTop + (elRect.top - parentRect.top) - 84;
-        parent.scrollTo({
-          top: Math.max(0, targetScroll),
-          behavior: 'smooth'
-        });
-        break;
-      }
-      parent = parent.parentElement;
-    }
-
-    // 4. 目标元素高亮微闪烁引导视觉
     element.classList.add('go-target-pulse');
     setTimeout(() => {
       element.classList.remove('go-target-pulse');
+      element.style.scrollMarginTop = originalMargin;
+      if (element.getAttribute('style') === '') {
+        element.removeAttribute('style');
+      }
     }, 1200);
   }
 
@@ -143,12 +129,34 @@
       }
     }
 
-    const turns = [];
-    const maxCount = Math.max(userQueryElements.length, modelResponseElements.length);
+    const allNodes = [...userQueryElements, ...modelResponseElements].sort((a, b) => {
+      return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
 
-    for (let i = 0; i < maxCount; i++) {
-      const userEl = userQueryElements[i] || null;
-      const modelEl = modelResponseElements[i] || null;
+    const turns = [];
+    let currentTurn = null;
+    let turnIndex = 0;
+
+    allNodes.forEach((node) => {
+      const isUser = userQueryElements.includes(node);
+      if (isUser) {
+        currentTurn = { index: turnIndex++, userEl: node, modelEl: null, headings: [], userFullText: '' };
+        turns.push(currentTurn);
+      } else {
+        if (!currentTurn) {
+          currentTurn = { index: turnIndex++, userEl: null, modelEl: node, headings: [], userFullText: '' };
+          turns.push(currentTurn);
+        } else if (currentTurn.modelEl) {
+          currentTurn = { index: turnIndex++, userEl: null, modelEl: node, headings: [], userFullText: '' };
+          turns.push(currentTurn);
+        } else {
+          currentTurn.modelEl = node;
+        }
+      }
+    });
+
+    turns.forEach((turn) => {
+      const { userEl, modelEl, index } = turn;
 
       // 提取提问纯文本
       let userFullText = '';
@@ -156,11 +164,14 @@
         const textNode = userEl.querySelector('.query-text, .user-query-text, p') || userEl;
         userFullText = textNode.innerText ? textNode.innerText.trim() : textNode.textContent.trim();
         userFullText = userFullText.replace(/\s+/g, ' ');
+        // 移除无障碍或辅助文本前缀（如 Gemini 的 "你说" 或 "You said"）
+        userFullText = userFullText.replace(/^(你说|You said)[:：\s]*/i, '');
       }
 
       if (!userFullText) {
-        userFullText = `提问 #${i + 1}`;
+        userFullText = `提问 #${index + 1}`;
       }
+      turn.userFullText = userFullText;
 
       // 提取当前回答内部的真实 Markdown 标题
       const headings = [];
@@ -172,7 +183,7 @@
           if (!isValidHeading(hEl, rawText)) return;
 
           const level = parseInt(hEl.tagName.substring(1), 10) || 2;
-          const headingId = `go-turn-${i}-h-${validIdx++}`;
+          const headingId = `go-turn-${index}-h-${validIdx++}`;
           hEl.dataset.goHeadingId = headingId;
 
           headings.push({
@@ -191,15 +202,8 @@
           });
         }
       }
-
-      turns.push({
-        index: i,
-        userEl,
-        userFullText,
-        modelEl,
-        headings
-      });
-    }
+      turn.headings = headings;
+    });
 
     state.turns = turns;
 
@@ -317,9 +321,20 @@
       container.className = 'gemini-outline-rail';
       shadow.appendChild(container);
 
+      // 单例全局 Tooltip
+      const tooltip = document.createElement('div');
+      tooltip.id = 'go-singleton-tooltip';
+      tooltip.className = 'go-prompt-tooltip';
+      tooltip.innerHTML = `
+        <div class="go-tooltip-header"></div>
+        <div class="go-tooltip-body"></div>
+      `;
+      shadow.appendChild(tooltip);
+
       state.hostEl = host;
       state.shadowRoot = shadow;
       state.containerEl = container;
+      state.tooltipEl = tooltip;
     }
     return state.containerEl;
   }
@@ -329,9 +344,12 @@
     const host = state.hostEl;
     if (!host) return;
 
-    // 侦测深色模式并传递给 :host
+    // 侦测深色模式 (涵盖各种可能的 Gemini 暗色标记及系统级偏好)
     const isDark = document.documentElement.classList.contains('dark-theme') ||
                    document.body.classList.contains('dark-theme') ||
+                   document.documentElement.getAttribute('data-theme') === 'dark' ||
+                   document.body.getAttribute('data-theme') === 'dark' ||
+                   document.documentElement.hasAttribute('dark') ||
                    window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (isDark) {
       host.classList.add('dark-theme');
@@ -339,52 +357,54 @@
       host.classList.remove('dark-theme');
     }
 
-    // 寻找居中正文容器
+    const windowWidth = window.innerWidth;
+
+    // 1. 基于几何计算获取正文真实物理右边界 (放弃依赖不稳定的内部 DOM)
     const contentContainers = [
       'chat-window',
       '.chat-history',
-      '.conversation-container',
       'infinite-scroller',
-      'main [class*="content"]',
       'main'
     ];
 
-    let contentRect = null;
+    let chatAreaRect = null;
     for (const sel of contentContainers) {
       const el = document.querySelector(sel);
       if (el && el.clientWidth > 400) {
-        contentRect = el.getBoundingClientRect();
+        chatAreaRect = el.getBoundingClientRect();
         break;
       }
     }
 
-    const windowWidth = window.innerWidth;
-
-    // 屏幕过窄自适应 (< 1020px)
-    if (windowWidth < 1020) {
-      host.classList.add('go-narrow-mode');
-      host.style.right = '8px';
-      host.style.left = 'auto';
-      return;
+    let trueContentRight = 0;
+    if (chatAreaRect) {
+      // Gemini 对话正文最大宽度约为 768px~820px，并在主聊天容器中居中
+      const chatAreaCenter = chatAreaRect.left + (chatAreaRect.width / 2);
+      trueContentRight = chatAreaCenter + 400; // 半宽取 400px 安全余量
     } else {
-      host.classList.remove('go-narrow-mode');
+      trueContentRight = windowWidth / 2 + 400;
     }
 
-    // 靠在正文右侧 20px
-    if (contentRect && contentRect.right > 0) {
-      const idealLeft = contentRect.right + 20;
-      const maxLeft = windowWidth - 230;
+    const availableMargin = windowWidth - trueContentRight;
 
-      if (idealLeft <= maxLeft) {
-        host.style.left = `${Math.round(idealLeft)}px`;
-        host.style.right = 'auto';
-      } else {
-        host.style.left = 'auto';
-        host.style.right = '16px';
-      }
-    } else {
+    // 2. 三档自适应吸附策略
+    // A. 空间充裕：自然嵌入留白区
+    if (availableMargin >= 230 && windowWidth >= 1020) {
+      host.classList.remove('go-narrow-mode');
+      host.style.left = `${Math.round(trueContentRight + 16)}px`;
+      host.style.right = 'auto';
+    } 
+    // B. 空间临界：紧贴屏幕边缘，大纲不折叠
+    else if (availableMargin >= 170 && windowWidth >= 1020) {
+      host.classList.remove('go-narrow-mode');
       host.style.left = 'auto';
-      host.style.right = '24px';
+      host.style.right = '8px';
+    } 
+    // C. 空间不足 (或窗口较窄)：自动切换微横条模式
+    else {
+      host.classList.add('go-narrow-mode');
+      host.style.left = 'auto';
+      host.style.right = '8px';
     }
   }
 
@@ -409,16 +429,12 @@
       const safeFull = turn.userFullText.replace(/"/g, '&quot;');
 
       promptHtml += `
-        <div class="go-prompt-pill-wrapper" data-turn="${turn.index}">
+        <div class="go-prompt-pill-wrapper" data-turn="${turn.index}" data-text="${safeFull}">
           <button class="go-prompt-pill ${isActive ? 'is-active' : ''}" 
                   data-turn="${turn.index}"
                   aria-label="跳转至第 ${turn.index + 1} 轮提问">
             <span class="go-pill-bar"></span>
           </button>
-          <div class="go-prompt-tooltip">
-            <div class="go-tooltip-header">第 ${turn.index + 1} 轮提问</div>
-            <div class="go-tooltip-body">${safeFull}</div>
-          </div>
         </div>
       `;
     });
@@ -467,7 +483,24 @@
       `;
     }
 
-    container.innerHTML = promptHtml + sectionHtml;
+    const newHtml = promptHtml + sectionHtml;
+    if (state.lastRenderedHtml === newHtml) {
+      updateActiveHeadingUI();
+      return;
+    }
+    state.lastRenderedHtml = newHtml;
+
+    const oldList = container.querySelector('.go-section-list');
+    const oldScrollTop = oldList ? oldList.scrollTop : 0;
+
+    container.innerHTML = newHtml;
+
+    if (oldScrollTop > 0) {
+      const newList = container.querySelector('.go-section-list');
+      if (newList) {
+        newList.scrollTop = oldScrollTop;
+      }
+    }
 
     // 绑定段横线点击跳转
     const pillBtns = container.querySelectorAll('.go-prompt-pill');
@@ -483,6 +516,32 @@
           if (targetEl) {
             scrollToTarget(targetEl);
           }
+        }
+      });
+    });
+
+    // 绑定段横线悬浮事件 (单例 Tooltip)
+    const pillWrappers = container.querySelectorAll('.go-prompt-pill-wrapper');
+    const tooltip = state.tooltipEl;
+    pillWrappers.forEach((wrapper) => {
+      wrapper.addEventListener('mouseenter', () => {
+        const turnIdx = parseInt(wrapper.dataset.turn, 10);
+        const text = wrapper.dataset.text;
+        if (tooltip) {
+          tooltip.querySelector('.go-tooltip-header').innerText = `第 ${turnIdx + 1} 轮提问`;
+          tooltip.querySelector('.go-tooltip-body').innerText = text;
+          
+          const rect = wrapper.getBoundingClientRect();
+          const hostRect = state.hostEl.getBoundingClientRect();
+          const topPos = rect.top - hostRect.top + (rect.height / 2);
+          
+          tooltip.style.top = `${topPos}px`;
+          tooltip.classList.add('is-visible');
+        }
+      });
+      wrapper.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.classList.remove('is-visible');
         }
       });
     });
@@ -573,7 +632,11 @@
     const observer = new MutationObserver((mutations) => {
       let shouldSync = false;
       for (const m of mutations) {
-        if (m.target && m.target.closest && m.target.closest('#gemini-outline-rail-host')) {
+        const target = m.target;
+        if (target && target.closest && target.closest('#gemini-outline-rail-host')) {
+          continue;
+        }
+        if (m.type === 'attributes' && m.attributeName !== 'class') {
           continue;
         }
         shouldSync = true;
@@ -587,7 +650,16 @@
     observer.observe(document.body, {
       childList: true,
       subtree: true,
-      characterData: true
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'data-theme', 'theme', 'dark']
+    });
+
+    // 监听系统级暗色模式切换
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (state.hostEl) {
+        updateRailPosition();
+      }
     });
 
     // 注入全局目标高亮脉冲动画规则
