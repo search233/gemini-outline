@@ -1,4 +1,4 @@
-# Gemini Outline (双子座大纲与提问导航助手)
+# Gemini Outline
 
 一款专为 Google Gemini 网页端（`gemini.google.com`）打造的 Chrome 浏览器扩展（Manifest V3）。采用类似现代化技术博客与 [Section-Nav-for-ChatGPT](https://github.com/scandishoper/Section-Nav-for-ChatGPT) 的极简嵌入式设计，将 **ChatGPT 风格的右侧提问跳转栈 (Prompt Navigator)** 与 **纯文档章节大纲 (Section Rail)** 浑然一体地嵌入在 Gemini 对话区右侧的留白槽位中。
 
